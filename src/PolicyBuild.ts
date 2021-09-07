@@ -51,7 +51,7 @@ export default class PolicBuild {
                     } else {
                         environmentFolder = appSettings.EnvironmentsFolder;
                     }
-                    var tmpFiles = [];
+                    var tmpFiles = new Set<string>();
                     vscode.workspace.findFiles(new vscode.RelativePattern(vscode.workspace.rootPath as string, '**/*.{xml}'), `**/${environmentFolder}/**`)
                         .then((uris) => {
                             let policyFiles: PolicyFile[] = [];
@@ -142,7 +142,7 @@ export default class PolicBuild {
 
                                                 var templatePath = path.join(environmentRootPath, idp.Template);
                                                 //add idp template file to cleanup list since it is not valid on its own.
-                                                tmpFiles.push(templatePath);
+                                                tmpFiles.add(templatePath);
 
                                                 //grab the already written template so environment settings are propagated.
                                                 var idpContent = fs.readFileSync(templatePath, 'utf8');
@@ -168,7 +168,7 @@ export default class PolicBuild {
                                                         var appPath = path.join(environmentRootPath, app.Template);
 
                                                         //add app template file to cleanup list since it is not valid on its own.
-                                                        tmpFiles.push(appPath);
+                                                        tmpFiles.add(appPath);
 
                                                         //grab the already written template so environment settings are propagated.
                                                         var appContent = fs.readFileSync(appPath, 'utf8');
@@ -194,6 +194,11 @@ export default class PolicBuild {
                                                 }
                                             });
                                         }
+                                        tmpFiles.forEach(function (file) {
+                                            fs.unlink(file, (err) => {
+                                                if (err) throw err;
+                                            });
+                                        });
                                         vscode.window.showInformationMessage("Your policies successfully exported and stored under the Environment folder.");
                                     }
                                 });
