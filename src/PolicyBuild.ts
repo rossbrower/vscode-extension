@@ -51,7 +51,7 @@ export default class PolicBuild {
                     } else {
                         environmentFolder = appSettings.EnvironmentsFolder;
                     }
-
+                    var tmpFiles = [];
                     vscode.workspace.findFiles(new vscode.RelativePattern(vscode.workspace.rootPath as string, '**/*.{xml}'), `**/${environmentFolder}/**`)
                         .then((uris) => {
                             let policyFiles: PolicyFile[] = [];
@@ -104,12 +104,12 @@ export default class PolicBuild {
 
                                             // Replace the file name
                                             policContent = policContent.replace(new RegExp("\{Settings:Filename\}", "gi"), file.FileName.replace(/\.[^/.]+$/, ""));
-                                            
+
                                             // Replace the file name and remove the policy prefix
-                                            policContent = policContent.replace(new RegExp("\{Settings:PolicyFilename\}", "gi"), file.FileName.replace(/\.[^/.]+$/, "").replace(new RegExp("B2C_1A_",  "g"), ""),  );
-                                            
+                                            policContent = policContent.replace(new RegExp("\{Settings:PolicyFilename\}", "gi"), file.FileName.replace(/\.[^/.]+$/, "").replace(new RegExp("B2C_1A_", "g"), ""),);
+
                                             // Replace the environment name
-                                            policContent = policContent.replace(new RegExp("\{Settings:Environment\}", "gi"), entry.Name );
+                                            policContent = policContent.replace(new RegExp("\{Settings:Environment\}", "gi"), entry.Name);
 
                                             // Replace the rest of the policy settings
                                             Object.keys(entry.PolicySettings).forEach(key => {
@@ -138,15 +138,67 @@ export default class PolicBuild {
                                                 if (err) throw err;
                                             });
                                         });
+                                        //iterate through identity providers and produce policies based on the template
+                                        entry.IdentityProviders.forEach(idp => {
 
+                                            var templatePath = path.join(environmentRootPath, idp.Template);
+                                            //add idp template file to cleanup list since it is not valid on its own.
+                                            tmpFiles.push(templatePath);
+
+                                            //grab the already written template so environment settings are propagated.
+                                            var idpContent = fs.readFileSync(templatePath, 'utf8');
+
+                                            //Replace the Identity Provider name
+                                            idpContent = idpContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
+
+                                            //Replace the rest of the policy settings                    
+                                            Object.keys(idp.PolicySettings).forEach(key => {
+                                                idpContent = idpContent.replace(new RegExp("\{IdentityProvider:" + key + "\}", "gi"), idp.PolicySettings[key]);
+                                            });
+
+                                            //Save the policy by appending the idp name to the template file name.
+                                            var idpPolicyFileName = idp.Template.replace(".xml", idp.Name + ".xml");
+                                            idpPolicyFileName = path.join(environmentRootPath, idpPolicyFileName);
+                                            fs.writeFile(idpPolicyFileName, idpContent, 'utf8', (err) => {
+                                                if (err) throw err;
+                                            });
+
+                                            //iterate through applications and produce policies mapped to this idp
+                                            entry.Applications.forEach(app => {
+                                                var appPath = path.join(environmentRootPath, app.Template);
+
+                                                //add app template file to cleanup list since it is not valid on its own.
+                                                tmpFiles.push(appPath);
+
+                                                //grab the already written template so environment settings are propagated.
+                                                var appContent = fs.readFileSync(appPath, 'utf8');
+
+                                                //Replace the Identity Provider name
+                                                appContent = appContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
+
+                                                //Replace the Application name                                                
+                                                appContent = appContent.replace(new RegExp("\{Application:Name\}", "gi"), app.Name);
+
+                                                //Replace the rest of the app settings             
+                                                Object.keys(app.PolicySettings).forEach(key => {
+                                                    appContent = appContent.replace(new RegExp("\{Application:" + key + "\}", "gi"), app.PolicySettings[key]);
+                                                });
+
+                                                //Save the policy by appending the idp name to the template file name.
+                                                var appPolicyFileName = app.Template.replace(".xml", idp.Name + "_" + app.Name + ".xml");
+                                                fs.writeFile(appPolicyFileName, appContent, 'utf8', (err) => {
+                                                    if (err) throw err;
+                                                });
+                                            });
+
+                                        });
+                                        
                                         vscode.window.showInformationMessage("Your policies successfully exported and stored under the Environment folder.");
                                     }
                                 });
-
                             });
                         });
                 }
-
             });
     };
 
@@ -213,4 +265,4 @@ export class PolicyFile {
         return subFolder;
     }
 
-} 
+}
