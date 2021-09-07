@@ -134,65 +134,66 @@ export default class PolicBuild {
                                                 filePath = path.join(environmentRootPath, file.FileName);
                                             }
 
-                                            fs.writeFile(filePath, policContent, 'utf8', (err) => {
-                                                if (err) throw err;
-                                            });
+                                            fs.writeFileSync(filePath, policContent, 'utf8');
                                         });
                                         //iterate through identity providers and produce policies based on the template
-                                        entry.IdentityProviders.forEach(idp => {
+                                        if (entry.IdentityProviders != null) {
+                                            entry.IdentityProviders.forEach(idp => {
 
-                                            var templatePath = path.join(environmentRootPath, idp.Template);
-                                            //add idp template file to cleanup list since it is not valid on its own.
-                                            tmpFiles.push(templatePath);
-
-                                            //grab the already written template so environment settings are propagated.
-                                            var idpContent = fs.readFileSync(templatePath, 'utf8');
-
-                                            //Replace the Identity Provider name
-                                            idpContent = idpContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
-
-                                            //Replace the rest of the policy settings                    
-                                            Object.keys(idp.PolicySettings).forEach(key => {
-                                                idpContent = idpContent.replace(new RegExp("\{IdentityProvider:" + key + "\}", "gi"), idp.PolicySettings[key]);
-                                            });
-
-                                            //Save the policy by appending the idp name to the template file name.
-                                            var idpPolicyFileName = idp.Template.replace(".xml", idp.Name + ".xml");
-                                            idpPolicyFileName = path.join(environmentRootPath, idpPolicyFileName);
-                                            fs.writeFile(idpPolicyFileName, idpContent, 'utf8', (err) => {
-                                                if (err) throw err;
-                                            });
-
-                                            //iterate through applications and produce policies mapped to this idp
-                                            entry.Applications.forEach(app => {
-                                                var appPath = path.join(environmentRootPath, app.Template);
-
-                                                //add app template file to cleanup list since it is not valid on its own.
-                                                tmpFiles.push(appPath);
+                                                var templatePath = path.join(environmentRootPath, idp.Template);
+                                                //add idp template file to cleanup list since it is not valid on its own.
+                                                tmpFiles.push(templatePath);
 
                                                 //grab the already written template so environment settings are propagated.
-                                                var appContent = fs.readFileSync(appPath, 'utf8');
+                                                var idpContent = fs.readFileSync(templatePath, 'utf8');
 
                                                 //Replace the Identity Provider name
-                                                appContent = appContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
+                                                idpContent = idpContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
 
-                                                //Replace the Application name                                                
-                                                appContent = appContent.replace(new RegExp("\{Application:Name\}", "gi"), app.Name);
-
-                                                //Replace the rest of the app settings             
-                                                Object.keys(app.PolicySettings).forEach(key => {
-                                                    appContent = appContent.replace(new RegExp("\{Application:" + key + "\}", "gi"), app.PolicySettings[key]);
+                                                //Replace the rest of the policy settings                    
+                                                Object.keys(idp.PolicySettings).forEach(key => {
+                                                    idpContent = idpContent.replace(new RegExp("\{IdentityProvider:" + key + "\}", "gi"), idp.PolicySettings[key]);
                                                 });
 
                                                 //Save the policy by appending the idp name to the template file name.
-                                                var appPolicyFileName = app.Template.replace(".xml", idp.Name + "_" + app.Name + ".xml");
-                                                fs.writeFile(appPolicyFileName, appContent, 'utf8', (err) => {
+                                                var idpPolicyFileName = idp.Template.replace(".xml", idp.Name + ".xml");
+                                                idpPolicyFileName = path.join(environmentRootPath, idpPolicyFileName);
+                                                fs.writeFile(idpPolicyFileName, idpContent, 'utf8', (err) => {
                                                     if (err) throw err;
                                                 });
-                                            });
 
-                                        });
-                                        
+                                                //iterate through applications and produce policies mapped to this idp
+                                                if (entry.Applications != null) {
+                                                    entry.Applications.forEach(app => {
+                                                        var appPath = path.join(environmentRootPath, app.Template);
+
+                                                        //add app template file to cleanup list since it is not valid on its own.
+                                                        tmpFiles.push(appPath);
+
+                                                        //grab the already written template so environment settings are propagated.
+                                                        var appContent = fs.readFileSync(appPath, 'utf8');
+
+                                                        //Replace the Identity Provider name
+                                                        appContent = appContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
+
+                                                        //Replace the Application name                                                
+                                                        appContent = appContent.replace(new RegExp("\{Application:Name\}", "gi"), app.Name);
+
+                                                        //Replace the rest of the app settings             
+                                                        Object.keys(app.PolicySettings).forEach(key => {
+                                                            appContent = appContent.replace(new RegExp("\{Application:" + key + "\}", "gi"), app.PolicySettings[key]);
+                                                        });
+
+                                                        //Save the policy by appending the idp name to the template file name.
+                                                        var appPolicyFileName = app.Template.replace(".xml", idp.Name + "_" + app.Name + ".xml");
+                                                        appPolicyFileName = path.join(environmentRootPath, appPolicyFileName);
+                                                        fs.writeFile(appPolicyFileName, appContent, 'utf8', (err) => {
+                                                            if (err) throw err;
+                                                        });
+                                                    });
+                                                }
+                                            });
+                                        }
                                         vscode.window.showInformationMessage("Your policies successfully exported and stored under the Environment folder.");
                                     }
                                 });
