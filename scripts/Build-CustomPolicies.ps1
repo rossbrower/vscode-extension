@@ -80,25 +80,28 @@ try {
             }
 
             #iterate through identity providers and produce policies based on the template
-            foreach ($idp in $entry.IdentityProviders) {                
-                $templatePath = Join-Path $environmentRootPath $idp.Template;                
-                #add idp template file to cleanup list since it is not valid on its own.
-                $tmpFiles[$templatePath] = $null;
-                #grab the already written template so environment settings are propagated.
-                $idpContent = Get-Content $templatePath | Out-String;
-                #Replace the Identity Provider name
-                $idpContent = $idpContent -replace "\{IdentityProvider:Name\}", $idp.Name
-                #Replace the rest of the policy settings
+            foreach ($idp in $entry.IdentityProviders) {    
+                
                 $idpSettingsHash = @{}; #ugly hash conversion from psobject so we can access json properties via key
                 $idp.PolicySettings.psobject.properties | ForEach-Object { $idpSettingsHash[$_.Name] = $_.Value }
-                foreach ($key in $idpSettingsHash.Keys) {
-                    Write-Verbose "KEY: $key VALUE: $($idpSettingsHash[$key])"
-                    $idpContent = $idpContent -replace "\{IdentityProvider:$($key)\}", $idpSettingsHash[$key]
-                }                
-                #Save the policy by appending the idp name to the template file name.
-                $idpPolicyFileName = $idp.Template.Replace(".xml", $idp.Name + ".xml");
-                $idpContent | Set-Content (Join-Path $environmentRootPath $idpPolicyFileName)  
 
+                if ($idp.Template) {
+                    $templatePath = Join-Path $environmentRootPath $idp.Template;                
+                    #add idp template file to cleanup list since it is not valid on its own.
+                    $tmpFiles[$templatePath] = $null;
+                    #grab the already written template so environment settings are propagated.
+                    $idpContent = Get-Content $templatePath | Out-String;
+                    #Replace the Identity Provider name
+                    $idpContent = $idpContent -replace "\{IdentityProvider:Name\}", $idp.Name
+                    #Replace the rest of the policy settings
+                    foreach ($key in $idpSettingsHash.Keys) {
+                        Write-Verbose "KEY: $key VALUE: $($idpSettingsHash[$key])"
+                        $idpContent = $idpContent -replace "\{IdentityProvider:$($key)\}", $idpSettingsHash[$key]
+                    }                
+                    #Save the policy by appending the idp name to the template file name.
+                    $idpPolicyFileName = $idp.Template.Replace(".xml", $idp.Name + ".xml");
+                    $idpContent | Set-Content (Join-Path $environmentRootPath $idpPolicyFileName)  
+                }
                 #iterate through applications and produce policies mapped to this idp
                 foreach ($app in $entry.Applications) {
                     $appPath = Join-Path $environmentRootPath $app.Template; 
@@ -110,6 +113,12 @@ try {
                     $appContent = $appContent -replace "\{IdentityProvider:Name\}", $idp.Name
                     #Replace the Application name
                     $appContent = $appContent -replace "\{Application:Name\}", $app.Name
+
+                    #Replace the rest of the policy settings
+                    foreach ($key in $idpSettingsHash.Keys) {
+                        Write-Verbose "KEY: $key VALUE: $($idpSettingsHash[$key])"
+                        $appContent = $appContent -replace "\{IdentityProvider:$($key)\}", $idpSettingsHash[$key]
+                    }  
 
                     #Replace the rest of the app settings
                     $appSettingsHash = @{}; #ugly hash conversion from psobject so we can access json properties via key
@@ -123,8 +132,7 @@ try {
                     $appContent | Set-Content ( Join-Path $environmentRootPath $appPolicyFileName )
                 }
             }
-            foreach($key in $tmpFiles.keys)
-            {
+            foreach ($key in $tmpFiles.keys) {
                 Remove-Item $key;
             }
         }
