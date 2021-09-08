@@ -139,29 +139,29 @@ export default class PolicBuild {
                                         //iterate through identity providers and produce policies based on the template
                                         if (entry.IdentityProviders != null) {
                                             entry.IdentityProviders.forEach(idp => {
+                                                if (idp.Template != null) {
+                                                    var templatePath = path.join(environmentRootPath, idp.Template);
+                                                    //add idp template file to cleanup list since it is not valid on its own.
+                                                    tmpFiles.add(templatePath);
 
-                                                var templatePath = path.join(environmentRootPath, idp.Template);
-                                                //add idp template file to cleanup list since it is not valid on its own.
-                                                tmpFiles.add(templatePath);
+                                                    //grab the already written template so environment settings are propagated.
+                                                    var idpContent = fs.readFileSync(templatePath, 'utf8');
 
-                                                //grab the already written template so environment settings are propagated.
-                                                var idpContent = fs.readFileSync(templatePath, 'utf8');
+                                                    //Replace the Identity Provider name
+                                                    idpContent = idpContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
 
-                                                //Replace the Identity Provider name
-                                                idpContent = idpContent.replace(new RegExp("\{IdentityProvider:Name\}", "gi"), idp.Name);
+                                                    //Replace the rest of the policy settings                    
+                                                    Object.keys(idp.PolicySettings).forEach(key => {
+                                                        idpContent = idpContent.replace(new RegExp("\{IdentityProvider:" + key + "\}", "gi"), idp.PolicySettings[key]);
+                                                    });
 
-                                                //Replace the rest of the policy settings                    
-                                                Object.keys(idp.PolicySettings).forEach(key => {
-                                                    idpContent = idpContent.replace(new RegExp("\{IdentityProvider:" + key + "\}", "gi"), idp.PolicySettings[key]);
-                                                });
-
-                                                //Save the policy by appending the idp name to the template file name.
-                                                var idpPolicyFileName = idp.Template.replace(".xml", idp.Name + ".xml");
-                                                idpPolicyFileName = path.join(environmentRootPath, idpPolicyFileName);
-                                                fs.writeFile(idpPolicyFileName, idpContent, 'utf8', (err) => {
-                                                    if (err) throw err;
-                                                });
-
+                                                    //Save the policy by appending the idp name to the template file name.
+                                                    var idpPolicyFileName = idp.Template.replace(".xml", idp.Name + ".xml");
+                                                    idpPolicyFileName = path.join(environmentRootPath, idpPolicyFileName);
+                                                    fs.writeFile(idpPolicyFileName, idpContent, 'utf8', (err) => {
+                                                        if (err) throw err;
+                                                    });
+                                                }
                                                 //iterate through applications and produce policies mapped to this idp
                                                 if (entry.Applications != null) {
                                                     entry.Applications.forEach(app => {
@@ -178,6 +178,11 @@ export default class PolicBuild {
 
                                                         //Replace the Application name                                                
                                                         appContent = appContent.replace(new RegExp("\{Application:Name\}", "gi"), app.Name);
+
+                                                        //Replace the rest of the idp settings                    
+                                                        Object.keys(idp.PolicySettings).forEach(key => {
+                                                            appContent = appContent.replace(new RegExp("\{IdentityProvider:" + key + "\}", "gi"), idp.PolicySettings[key]);
+                                                        });
 
                                                         //Replace the rest of the app settings             
                                                         Object.keys(app.PolicySettings).forEach(key => {
