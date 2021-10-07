@@ -199,14 +199,14 @@ export default class PolicBuild {
                                                 }
                                             });
                                         }
-                                        tmpFiles.forEach(function (file) {
-                                            fs.unlink(file, (err) => {
-                                                if (err) throw err;
-                                            });
-                                        });
-                                        vscode.window.showInformationMessage("Your policies successfully exported and stored under the Environment folder.");
                                     }
                                 });
+                                tmpFiles.forEach(function (file) {
+                                    fs.unlink(file, (err) => {
+                                        if (err) throw err;
+                                    });
+                                });
+                                vscode.window.showInformationMessage("Your policies successfully exported and stored under the Environment folder.");
                             });
                         });
                 }
